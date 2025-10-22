@@ -307,3 +307,133 @@ class TextInput(QWidget):
         self._error.setText("")
         self._error.setVisible(False)
 
+
+class SearchableSelect(QWidget):
+    """A combo-like widget with a text input and a filtered drop-down list.
+
+    - Provide a list of options (sequence of strings or (value, label) tuples)
+    - Typing filters visible options (case-insensitive, substring match)
+    - Arrow keys navigate, Enter selects, clicking selects
+    - Emits `selection_changed` with the selected value (label if string list)
+    """
+    from PySide6.QtCore import Signal
+
+    selection_changed = Signal(object)
+
+    def __init__(self, options: list, placeholder: str = "", parent=None, show_all_on_focus: bool = True):
+        super().__init__(parent)
+        from PySide6.QtWidgets import QVBoxLayout, QLineEdit, QListWidget, QListWidgetItem
+        from PySide6.QtCore import Qt
+
+        self._raw_options = []
+        # Normalize options to list of (value, label)
+        for o in options:
+            if isinstance(o, tuple) and len(o) >= 2:
+                self._raw_options.append((o[0], str(o[1])))
+            else:
+                self._raw_options.append((o, str(o)))
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        self._input = QLineEdit()
+        self._input.setPlaceholderText(placeholder)
+        layout.addWidget(self._input)
+
+        self._list = QListWidget()
+        self._list.setVisible(False)
+        self._list.setMaximumHeight(200)
+        layout.addWidget(self._list)
+
+        self.setLayout(layout)
+
+        self._populate_list(self._raw_options)
+        # signals and behavior
+        self._show_all_on_focus = show_all_on_focus
+        self._input.textChanged.connect(self._on_text_changed)
+        # wrap keypress
+        self._input.keyPressEvent = self._input_keypress_wrapper(self._input.keyPressEvent)
+        self._list.itemClicked.connect(self._on_item_clicked)
+
+        if self._show_all_on_focus:
+            orig_focus_in = getattr(self._input, 'focusInEvent', None)
+
+            def _focus_in(event):
+                # show all options when focused
+                self._populate_list(self._raw_options)
+                self._list.setVisible(self._list.count() > 0)
+                if orig_focus_in:
+                    return orig_focus_in(event)
+
+            self._input.focusInEvent = _focus_in
+
+    def _populate_list(self, options):
+        from PySide6.QtWidgets import QListWidgetItem
+        self._list.clear()
+        for val, label in options:
+            item = QListWidgetItem(label)
+            item.setData(256, val)
+            self._list.addItem(item)
+
+    def _on_text_changed(self, txt: str):
+        txt_low = txt.strip().lower()
+        if not txt_low:
+            # show all options
+            filtered = self._raw_options
+        else:
+            filtered = [o for o in self._raw_options if txt_low in o[1].lower()]
+
+        self._populate_list(filtered)
+        self._list.setVisible(len(filtered) > 0)
+
+    def _input_keypress_wrapper(self, orig):
+        from PySide6.QtCore import Qt
+
+        def _wrapper(event):
+            key = event.key()
+            if key in (Qt.Key_Down, Qt.Key_Up):
+                # navigate the list
+                if not self._list.isVisible():
+                    self._list.setVisible(True)
+                cur = self._list.currentRow()
+                if key == Qt.Key_Down:
+                    cur = min(self._list.count() - 1, cur + 1) if cur >= 0 else 0
+                else:
+                    cur = max(0, cur - 1) if cur >= 0 else max(0, self._list.count() - 1)
+                self._list.setCurrentRow(cur)
+                return
+            if key == Qt.Key_Return or key == Qt.Key_Enter:
+                item = self._list.currentItem()
+                if item:
+                    self._select_item(item)
+                return
+            # default
+            return orig(event)
+
+        return _wrapper
+
+    def _on_item_clicked(self, item):
+        self._select_item(item)
+
+    def _select_item(self, item):
+        val = item.data(256)
+        label = item.text()
+        self._input.setText(label)
+        self._list.setVisible(False)
+        self.selection_changed.emit(val)
+
+    def current_value(self):
+        # return value of current selection if any
+        cur = self._list.currentItem()
+        return cur.data(256) if cur is not None else None
+
+    def set_options(self, options: list):
+        self._raw_options = []
+        for o in options:
+            if isinstance(o, tuple) and len(o) >= 2:
+                self._raw_options.append((o[0], str(o[1])))
+            else:
+                self._raw_options.append((o, str(o)))
+        self._populate_list(self._raw_options)
+
+
