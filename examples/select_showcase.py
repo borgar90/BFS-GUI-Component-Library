@@ -7,12 +7,12 @@ import sys
 import pathlib
 
 try:
-    from bfs_component.ui.components import SearchableSelect
+    from bfs_component.ui.components import StyledComboBox
 except ModuleNotFoundError:
     repo_root = pathlib.Path(__file__).resolve().parents[1]
     import sys
     sys.path.insert(0, str(repo_root))
-    from bfs_component.ui.components import SearchableSelect
+    from bfs_component.ui.components import StyledComboBox
 
 COUNTRIES = [
     "Norway",
@@ -32,7 +32,7 @@ def main(argv):
     win.setWindowTitle("Select Showcase")
     layout = QVBoxLayout(win)
 
-    sel = SearchableSelect(COUNTRIES, placeholder="Type to filter countries")
+    sel = StyledComboBox(COUNTRIES)
     layout.addWidget(sel)
 
     chosen = QLabel("Selected: none")

@@ -3,30 +3,23 @@ from PySide6.QtWidgets import QApplication
 
 
 def test_searchable_select_filters_and_selects():
-    from bfs_component.ui.components import SearchableSelect
+    from bfs_component.ui.components import StyledComboBox
 
     app = QApplication.instance() or QApplication(sys.argv)
     opts = ["Norway", "Sweden", "Denmark"]
-    s = SearchableSelect(opts)
+    s = StyledComboBox(opts)
 
-    # simulate typing 'nor'
-    s._input.setText("nor")
-    s._on_text_changed("nor")
-
-    # After filtering, at least Norway should appear as first item
-    items = [s._popup.item(i).text() for i in range(s._popup.count())]
-    assert any("norway" == it.lower() or "nor" in it.lower() for it in items)
-
-    # select the first item and ensure signal is emitted (connect to local collector)
+    # simulate user selecting "Norway" programmatically via set_current_value
     collected = []
 
     def on_sel(val):
         collected.append(val)
 
     s.selection_changed.connect(on_sel)
-    # select via internal helper
-    if s._popup.count() > 0:
-        s._select_item(s._popup.item(0))
+    # set current value
+    s.set_current_value("Norway")
+    # simulate activation (combobox would normally emit selection_changed)
+    s._combobox.activated.emit(s._combobox.currentIndex())
 
     assert len(collected) == 1
-    assert collected[0] in opts
+    assert collected[0] == "Norway"

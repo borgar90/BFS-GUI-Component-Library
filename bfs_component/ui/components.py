@@ -64,14 +64,9 @@ class StyledLineEdit(QLineEdit):
     def focusInEvent(self, event):
         # apply a neon drop shadow to simulate the glow in the design
         try:
-            from PySide6.QtWidgets import QGraphicsDropShadowEffect
-            from PySide6.QtGui import QColor
-            effect = QGraphicsDropShadowEffect(self)
-            effect.setBlurRadius(18)
-            # use a more neutral cooler shadow so it doesn't overpower the warm gradient
-            effect.setColor(QColor(8, 18, 42, 160))
-            effect.setOffset(0, 0)
-            self.setGraphicsEffect(effect)
+            # remove the heavy drop shadow approach; we'll paint a warm radial
+            # glow in paintEvent instead to give precise control over tint
+            pass
         except Exception:
             # if effects unavailable, still set the property so stylesheet reacts
             pass
@@ -110,6 +105,21 @@ class StyledLineEdit(QLineEdit):
             r = QRectF(self.rect())
             inset = 2.0
             r.adjust(inset, inset, -inset, -inset)
+
+            # paint a warm radial glow at the top-left (under the stroke)
+            glow_center = r.topLeft() + (r.width() * 0.18, r.height() * 0.2)
+            try:
+                from PySide6.QtGui import QRadialGradient
+                rg = QRadialGradient(glow_center, max(r.width(), r.height()) * 0.9)
+                rg.setColorAt(0.0, QColor(249, 115, 22, 160))
+                rg.setColorAt(0.25, QColor(236, 72, 153, 90))
+                rg.setColorAt(1.0, QColor(8, 18, 42, 0))
+                painter.setBrush(rg)
+                painter.setPen(Qt.NoPen)
+                painter.drawRoundedRect(r, 10.0, 10.0)
+            except Exception:
+                # ignore if radial gradients unavailable
+                pass
 
             # Map colors so the top-left shows the warm stop (red -> orange -> pink),
             # the top area transitions to purple, and bottom-right becomes dark blue.
