@@ -4,8 +4,15 @@ Shows the `TextInput` component with a few validation rules.
 """
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel
 import sys
+import pathlib
 
-from bfs_component.ui.components import TextInput
+# When examples are run directly from the repo, ensure the project root is on sys.path
+try:
+    from bfs_component.ui.components import TextInput
+except ModuleNotFoundError:
+    repo_root = pathlib.Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root))
+    from bfs_component.ui.components import TextInput
 
 
 def main(argv):

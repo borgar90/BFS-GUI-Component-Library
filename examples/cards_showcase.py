@@ -13,8 +13,15 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap
 import sys
+import pathlib
 
-from bfs_component.ui.components import Card, ContactCard, CompanyCard
+# Make examples runnable from repo root by adding project to sys.path when needed
+try:
+    from bfs_component.ui.components import Card, ContactCard, CompanyCard
+except ModuleNotFoundError:
+    repo_root = pathlib.Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root))
+    from bfs_component.ui.components import Card, ContactCard, CompanyCard
 
 
 def make_sample_cards():
