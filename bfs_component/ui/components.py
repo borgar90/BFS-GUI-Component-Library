@@ -148,13 +148,11 @@ class StyledLineEdit(QLineEdit):
             painter.setPen(pen)
             # inner gradient stroke
             painter.drawRoundedRect(r, 10.0, 10.0)
-            # outer focus ring (drawn as a larger rounded rect so it appears
-            # like a ring around the widget). The rect is expanded so the
-            # stroke sits partly outside the widget bounds (clipped by the
-            # window), which visually forms a focus ring.
+            # outer focus ring drawn inside widget bounds so it is always visible
+            # shrink the rect a little and draw a thicker pen inside the widget
             r_out = QRectF(r)
-            out_inset = 4.0
-            r_out.adjust(-out_inset, -out_inset, out_inset, out_inset)
+            inset_inner = 3.0
+            r_out.adjust(inset_inner, inset_inner, -inset_inner, -inset_inner)
             try:
                 from design_instructions.theme import THEME
                 stops_out = THEME.get('colors', {}).get('input_focus_stops', ['#00C6FF', '#9047FF', '#FF6F61'])
@@ -170,7 +168,8 @@ class StyledLineEdit(QLineEdit):
             grad_out.setColorAt(1.0, QColor(stops_out[2]))
             outer_pen = QPen()
             outer_pen.setBrush(grad_out)
-            outer_pen.setWidthF(float(ring_w))
+            # slightly thinner than before because it's inside bounds
+            outer_pen.setWidthF(max(1.0, float(ring_w) - 2.0))
             outer_pen.setJoinStyle(outer_pen.RoundJoin)
             painter.setPen(outer_pen)
             painter.drawRoundedRect(r_out, 12.0, 12.0)
