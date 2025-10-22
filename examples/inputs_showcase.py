@@ -40,26 +40,30 @@ def main(argv):
     layout.addWidget(demo_input)
 
     # small gradient swatch for quick visual testing (10x10)
-    from PySide6.QtWidgets import QWidget
-    from PySide6.QtGui import QPainter, QLinearGradient, QColor
-    from PySide6.QtCore import Qt, QRectF
 
     class GradientSwatch(QWidget):
         def __init__(self, parent=None):
             super().__init__(parent)
-            self._small = 10
+            # small: 20x50 as requested
+            self._small_w = 20
+            self._small_h = 50
             self._large = 120
-            self.setFixedSize(self._small, self._small)
+            self.setFixedSize(self._small_w, self._small_h)
             self._expanded = False
 
         def mousePressEvent(self, event):
             # toggle size between small and large for easier inspection
             self._expanded = not self._expanded
-            self.setFixedSize(self._large if self._expanded else self._small,
-                              self._large if self._expanded else self._small)
+            if self._expanded:
+                self.setFixedSize(self._large, self._large)
+            else:
+                self.setFixedSize(self._small_w, self._small_h)
             self.update()
 
         def paintEvent(self, event):
+            from PySide6.QtGui import QPainter, QLinearGradient, QColor
+            from PySide6.QtCore import QRectF
+
             p = QPainter(self)
             p.setRenderHint(QPainter.Antialiasing)
             r = QRectF(self.rect())
