@@ -5,4 +5,5 @@ nav:
   - Examples: examples.md
   - Components:
     - Card: components_cards.md
+    - Inputs: components_inputs.md
 theme: readthedocs

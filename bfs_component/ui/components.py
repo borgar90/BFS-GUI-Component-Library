@@ -190,3 +190,120 @@ class MainFrame(QWidget):
         layout.addStretch()
 
         self.setLayout(layout)
+
+
+class TextInput(QWidget):
+    """A labelled text input with validation and inline error display.
+
+    Features:
+    - label text above the input
+    - placeholder text
+    - required flag (shows error when empty)
+    - regex validator (QRegularExpression) with an error message
+    - `text_changed` signal emitted when the text changes
+
+    Simple usage:
+        t = TextInput(label="Name", placeholder="Full name")
+        t.set_required(True)
+        t.set_validation_regex(r"^[A-Za-z ]+$", "Only letters and spaces allowed")
+    """
+    from PySide6.QtCore import Signal
+
+    text_changed = Signal(str)
+
+    def __init__(self, label: str = "", placeholder: str = "", parent=None):
+        super().__init__(parent)
+        from PySide6.QtWidgets import QVBoxLayout, QLabel, QLineEdit
+        from PySide6.QtGui import QRegularExpressionValidator
+        from PySide6.QtCore import QRegularExpression
+
+        self._label_text = label
+        self._required = False
+        self._regex = None
+        self._regex_error = "Invalid input"
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self._label = QLabel(label)
+        self._label.setStyleSheet("font-weight: 600;")
+        layout.addWidget(self._label)
+
+        self._input = QLineEdit()
+        self._input.setPlaceholderText(placeholder)
+        self._input.textChanged.connect(self._on_text_changed)
+        layout.addWidget(self._input)
+
+        self._error = QLabel("")
+        self._error.setStyleSheet("color: #DC2626; font-size: 11px;")
+        self._error.setVisible(False)
+        layout.addWidget(self._error)
+
+        self.setLayout(layout)
+
+    def _on_text_changed(self, txt: str):
+        self.clear_error()
+        self.text_changed.emit(txt)
+
+    def set_placeholder(self, text: str):
+        self._input.setPlaceholderText(text)
+
+    def set_required(self, required: bool = True, error_message: str = "This field is required"):
+        self._required = required
+        self._required_error = error_message
+
+    def set_validation_regex(self, pattern: str, error_message: str = "Invalid input"):
+        """Set a regular expression validator. Pattern is a Python/Qt regex.
+
+        The widget will validate via `is_valid()` and you can display the
+        error message by calling `validate(show_error=True)` or checking
+        `is_valid()` programmatically.
+        """
+        from PySide6.QtCore import QRegularExpression
+        from PySide6.QtGui import QRegularExpressionValidator
+
+        self._regex = QRegularExpression(pattern)
+        self._regex_validator = QRegularExpressionValidator(self._regex)
+        self._regex_error = error_message
+
+    def text(self) -> str:
+        return self._input.text()
+
+    def set_text(self, value: str):
+        self._input.setText(value)
+
+    def clear(self):
+        self._input.clear()
+        self.clear_error()
+
+    def is_valid(self) -> bool:
+        """Return True if current text satisfies required/regex rules."""
+        txt = self.text()
+        if self._required and not txt:
+            return False
+        if getattr(self, "_regex", None) is not None:
+            # use validator
+            state, _, _ = getattr(self, "_regex_validator").validate(txt, 0)
+            from PySide6.QtGui import QValidator
+
+            return state == QValidator.Acceptable
+        return True
+
+    def validate(self, show_error: bool = True) -> bool:
+        ok = self.is_valid()
+        if not ok and show_error:
+            if self._required and not self.text():
+                self._show_error(getattr(self, "_required_error", "This field is required"))
+            elif getattr(self, "_regex", None) is not None:
+                self._show_error(getattr(self, "_regex_error", "Invalid input"))
+            else:
+                self._show_error("Invalid input")
+        return ok
+
+    def _show_error(self, msg: str):
+        self._error.setText(msg)
+        self._error.setVisible(True)
+
+    def clear_error(self):
+        self._error.setText("")
+        self._error.setVisible(False)
+
