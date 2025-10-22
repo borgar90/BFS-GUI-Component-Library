@@ -111,14 +111,19 @@ class StyledLineEdit(QLineEdit):
             inset = 2.0
             r.adjust(inset, inset, -inset, -inset)
 
-            # bias the warm colors (pink/orange) toward the top-right corner
-            # by creating a diagonal gradient from bottom-left -> top-right and
-            # concentrating the warm stops near the end.
-            grad = QLinearGradient(r.bottomLeft(), r.topRight())
-            grad.setColorAt(0.0, QColor(124, 58, 237, 160))
-            grad.setColorAt(0.25, QColor(124, 58, 237, 220))
-            grad.setColorAt(0.6, QColor(236, 72, 153, 220))
-            grad.setColorAt(1.0, QColor(249, 115, 22, 220))
+            # Map colors so the top-left shows the warm stop (red -> orange -> pink),
+            # the top area transitions to purple, and bottom-right becomes dark blue.
+            # We'll create a diagonal gradient from top-left -> bottom-right and
+            # place warm stops early with strong alpha.
+            grad = QLinearGradient(r.topLeft(), r.bottomRight())
+            # warm region at the start (top-left)
+            grad.setColorAt(0.0, QColor(249, 59, 22, 255))   # vivid red/orange
+            grad.setColorAt(0.12, QColor(249, 115, 22, 240))  # orange
+            grad.setColorAt(0.28, QColor(236, 72, 153, 230))  # pink
+            # transition to purple across the top/mid
+            grad.setColorAt(0.55, QColor(124, 58, 237, 200))
+            # darker blue toward bottom-right
+            grad.setColorAt(1.0, QColor(8, 18, 42, 200))
 
             pen = QPen()
             pen.setBrush(grad)
