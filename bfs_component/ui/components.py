@@ -134,8 +134,8 @@ class StyledLineEdit(QLineEdit):
 
             pen = QPen()
             pen.setBrush(grad)
-            # requested 2px solid equivalent stroke
-            pen.setWidthF(2.0)
+            # testing: use 1px stroke
+            pen.setWidthF(1.0)
             pen.setJoinStyle(pen.RoundJoin)
 
             painter.setPen(pen)
