@@ -336,14 +336,29 @@ class SearchableSelect(QWidget):
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
 
+        # input with a trailing dropdown button to mimic a combobox
+        from PySide6.QtWidgets import QHBoxLayout, QToolButton
+
+        h = QHBoxLayout()
+        h.setContentsMargins(0, 0, 0, 0)
         self._input = QLineEdit()
         self._input.setPlaceholderText(placeholder)
-        layout.addWidget(self._input)
+        h.addWidget(self._input)
 
-        self._list = QListWidget()
-        self._list.setVisible(False)
-        self._list.setMaximumHeight(200)
-        layout.addWidget(self._list)
+        self._button = QToolButton()
+        self._button.setText("\u25BE")  # down arrow
+        self._button.setCursor(self._input.cursor())
+        self._button.setFocusPolicy(Qt.NoFocus)
+        h.addWidget(self._button)
+
+        layout.addLayout(h)
+
+        # use a popup list so options only appear while focus is on the select
+        self._popup = QListWidget(None)
+        self._popup.setWindowFlags(Qt.Popup)
+        self._popup.setFocusPolicy(Qt.StrongFocus)
+        self._popup.setUniformItemSizes(True)
+        self._popup.setMaximumHeight(200)
 
         self.setLayout(layout)
 
@@ -353,7 +368,11 @@ class SearchableSelect(QWidget):
         self._input.textChanged.connect(self._on_text_changed)
         # wrap keypress
         self._input.keyPressEvent = self._input_keypress_wrapper(self._input.keyPressEvent)
-        self._list.itemClicked.connect(self._on_item_clicked)
+        self._popup.itemClicked.connect(self._on_item_clicked)
+        self._button.clicked.connect(self.toggle_popup)
+
+        # Hide popup when focus leaves both input and popup
+        self._popup.installEventFilter(self)
 
         if self._show_all_on_focus:
             orig_focus_in = getattr(self._input, 'focusInEvent', None)
@@ -361,19 +380,32 @@ class SearchableSelect(QWidget):
             def _focus_in(event):
                 # show all options when focused
                 self._populate_list(self._raw_options)
-                self._list.setVisible(self._list.count() > 0)
+                self._show_popup()
                 if orig_focus_in:
                     return orig_focus_in(event)
 
             self._input.focusInEvent = _focus_in
 
+        # ensure input losing focus hides popup unless popup itself gets focus
+        orig_focus_out = getattr(self._input, 'focusOutEvent', None)
+
+        def _focus_out(event):
+            # schedule check after focus changes
+            from PySide6.QtCore import QTimer
+
+            QTimer.singleShot(0, self._hide_if_focus_lost)
+            if orig_focus_out:
+                return orig_focus_out(event)
+
+        self._input.focusOutEvent = _focus_out
+
     def _populate_list(self, options):
         from PySide6.QtWidgets import QListWidgetItem
-        self._list.clear()
+        self._popup.clear()
         for val, label in options:
             item = QListWidgetItem(label)
             item.setData(256, val)
-            self._list.addItem(item)
+            self._popup.addItem(item)
 
     def _on_text_changed(self, txt: str):
         txt_low = txt.strip().lower()
@@ -382,9 +414,11 @@ class SearchableSelect(QWidget):
             filtered = self._raw_options
         else:
             filtered = [o for o in self._raw_options if txt_low in o[1].lower()]
-
         self._populate_list(filtered)
-        self._list.setVisible(len(filtered) > 0)
+        if len(filtered) > 0:
+            self._show_popup()
+        else:
+            self._popup.hide()
 
     def _input_keypress_wrapper(self, orig):
         from PySide6.QtCore import Qt
@@ -392,18 +426,18 @@ class SearchableSelect(QWidget):
         def _wrapper(event):
             key = event.key()
             if key in (Qt.Key_Down, Qt.Key_Up):
-                # navigate the list
-                if not self._list.isVisible():
-                    self._list.setVisible(True)
-                cur = self._list.currentRow()
+                # navigate the popup list
+                if not self._popup.isVisible():
+                    self._show_popup()
+                cur = self._popup.currentRow()
                 if key == Qt.Key_Down:
-                    cur = min(self._list.count() - 1, cur + 1) if cur >= 0 else 0
+                    cur = min(self._popup.count() - 1, cur + 1) if cur >= 0 else 0
                 else:
-                    cur = max(0, cur - 1) if cur >= 0 else max(0, self._list.count() - 1)
-                self._list.setCurrentRow(cur)
+                    cur = max(0, cur - 1) if cur >= 0 else max(0, self._popup.count() - 1)
+                self._popup.setCurrentRow(cur)
                 return
             if key == Qt.Key_Return or key == Qt.Key_Enter:
-                item = self._list.currentItem()
+                item = self._popup.currentItem()
                 if item:
                     self._select_item(item)
                 return
@@ -415,16 +449,37 @@ class SearchableSelect(QWidget):
     def _on_item_clicked(self, item):
         self._select_item(item)
 
+    def toggle_popup(self):
+        if self._popup.isVisible():
+            self._popup.hide()
+        else:
+            # repopulate and show
+            self._populate_list(self._raw_options)
+            self._show_popup()
+
+    # Combobox-like convenience API
+    def set_current_value(self, value):
+        # find item with matching value and select it
+        for i in range(self._popup.count()):
+            it = self._popup.item(i)
+            if it.data(256) == value:
+                self._select_item(it)
+                return True
+        return False
+
+    def get_current_value(self):
+        return self.current_value()
+
     def _select_item(self, item):
         val = item.data(256)
         label = item.text()
         self._input.setText(label)
-        self._list.setVisible(False)
+        self._popup.hide()
         self.selection_changed.emit(val)
 
     def current_value(self):
         # return value of current selection if any
-        cur = self._list.currentItem()
+        cur = self._popup.currentItem()
         return cur.data(256) if cur is not None else None
 
     def set_options(self, options: list):
@@ -435,5 +490,35 @@ class SearchableSelect(QWidget):
             else:
                 self._raw_options.append((o, str(o)))
         self._populate_list(self._raw_options)
+
+    def _show_popup(self):
+        # position popup under the input
+        geo = self._input.geometry()
+        p = self._input.mapToGlobal(geo.bottomLeft())
+        self._popup.setMinimumWidth(max(self._input.width(), 120))
+        self._popup.move(p)
+        self._popup.show()
+
+    def _hide_if_focus_lost(self):
+        from PySide6.QtWidgets import QApplication
+        fw = QApplication.focusWidget()
+        if fw is None:
+            self._popup.hide()
+            return
+        # if focus not on input or popup, hide
+        if fw is not self._input and not (fw is self._popup or self._popup.isAncestorOf(fw)):
+            self._popup.hide()
+
+    def eventFilter(self, obj, event):
+        # hide popup when it loses focus
+        from PySide6.QtCore import QEvent
+        if not hasattr(self, '_popup'):
+            return super().eventFilter(obj, event)
+
+        if obj is self._popup and event.type() == QEvent.FocusOut:
+            # schedule a check after focus change
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, self._hide_if_focus_lost)
+        return super().eventFilter(obj, event)
 
 
