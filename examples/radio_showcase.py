@@ -3,9 +3,15 @@
 Run this file directly with: python examples/radio_showcase.py
 """
 import sys
+import pathlib
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton
 
-from bfs_component.ui.components import RadioGroup
+try:
+    from bfs_component.ui.components import RadioGroup
+except ModuleNotFoundError:
+    repo_root = pathlib.Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root))
+    from bfs_component.ui.components import RadioGroup
 
 
 def main():
