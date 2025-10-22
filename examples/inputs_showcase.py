@@ -39,6 +39,42 @@ def main(argv):
     demo_input.setPlaceholderText("Click or press 'Focus' to see the glow")
     layout.addWidget(demo_input)
 
+    # small gradient swatch for quick visual testing (10x10)
+    from PySide6.QtWidgets import QWidget
+    from PySide6.QtGui import QPainter, QLinearGradient, QColor
+    from PySide6.QtCore import Qt, QRectF
+
+    class GradientSwatch(QWidget):
+        def __init__(self, parent=None):
+            super().__init__(parent)
+            self._small = 10
+            self._large = 120
+            self.setFixedSize(self._small, self._small)
+            self._expanded = False
+
+        def mousePressEvent(self, event):
+            # toggle size between small and large for easier inspection
+            self._expanded = not self._expanded
+            self.setFixedSize(self._large if self._expanded else self._small,
+                              self._large if self._expanded else self._small)
+            self.update()
+
+        def paintEvent(self, event):
+            p = QPainter(self)
+            p.setRenderHint(QPainter.Antialiasing)
+            r = QRectF(self.rect())
+            grad = QLinearGradient(r.topLeft(), r.bottomRight())
+            grad.setColorAt(0.0, QColor('#00C6FF'))
+            grad.setColorAt(0.5, QColor('#9047FF'))
+            grad.setColorAt(1.0, QColor('#FF6F61'))
+            p.fillRect(r, grad)
+            p.end()
+
+    lbl_swatch = QLabel("Gradient swatch (click to toggle size):")
+    layout.addWidget(lbl_swatch)
+    sw = GradientSwatch()
+    layout.addWidget(sw)
+
     btn_row = QHBoxLayout()
     btn_focus = QPushButton("Focus")
     btn_unfocus = QPushButton("Unfocus")
