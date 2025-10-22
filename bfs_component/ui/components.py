@@ -139,11 +139,30 @@ class StyledLineEdit(QLineEdit):
             pen.setJoinStyle(pen.RoundJoin)
 
             painter.setPen(pen)
+            # inner gradient stroke
             painter.drawRoundedRect(r, 10.0, 10.0)
-            # faint outer translucent stroke to add contrast for warm colors
-            outer_pen = QPen(QColor(255, 255, 255, 30))
-            outer_pen.setWidthF(1.0)
+            # outer focus ring (drawn as a larger rounded rect so it appears
+            # like a ring around the widget). The rect is expanded so the
+            # stroke sits partly outside the widget bounds (clipped by the
+            # window), which visually forms a focus ring.
+            r_out = QRectF(r)
+            out_inset = 4.0
+            r_out.adjust(-out_inset, -out_inset, out_inset, out_inset)
+            from PySide6.QtGui import QLinearGradient
+            grad_out = QLinearGradient(r_out.topLeft(), r_out.bottomRight())
+            grad_out.setColorAt(0.0, QColor('#00C6FF'))
+            grad_out.setColorAt(0.5, QColor('#9047FF'))
+            grad_out.setColorAt(1.0, QColor('#FF6F61'))
+            outer_pen = QPen()
+            outer_pen.setBrush(grad_out)
+            outer_pen.setWidthF(6.0)
+            outer_pen.setJoinStyle(outer_pen.RoundJoin)
             painter.setPen(outer_pen)
+            painter.drawRoundedRect(r_out, 12.0, 12.0)
+            # faint outer translucent stroke to add contrast for warm colors
+            outer_highlight = QPen(QColor(255, 255, 255, 30))
+            outer_highlight.setWidthF(1.0)
+            painter.setPen(outer_highlight)
             painter.drawRoundedRect(r.adjusted(-0.5, -0.5, 0.5, 0.5), 10.0, 10.0)
             painter.end()
         except Exception:
