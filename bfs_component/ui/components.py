@@ -125,20 +125,17 @@ class StyledLineEdit(QLineEdit):
             # the top area transitions to purple, and bottom-right becomes dark blue.
             # We'll create a diagonal gradient from top-left -> bottom-right and
             # place warm stops early with strong alpha.
+            # Use the requested diagonal gradient: cyan -> lilla -> orange
+            # Equivalent to: border: 2px solid qlineargradient(x1:0,y1:0,x2:1,y2:1,...)
             grad = QLinearGradient(r.topLeft(), r.bottomRight())
-            # warm region at the start (top-left)
-            grad.setColorAt(0.0, QColor(249, 59, 22, 255))   # vivid red/orange
-            grad.setColorAt(0.12, QColor(249, 115, 22, 240))  # orange
-            grad.setColorAt(0.28, QColor(236, 72, 153, 230))  # pink
-            # transition to purple across the top/mid
-            grad.setColorAt(0.55, QColor(124, 58, 237, 200))
-            # darker blue toward bottom-right
-            grad.setColorAt(1.0, QColor(8, 18, 42, 200))
+            grad.setColorAt(0.0, QColor('#00C6FF'))   # cyan
+            grad.setColorAt(0.5, QColor('#9047FF'))   # lilla (purple)
+            grad.setColorAt(1.0, QColor('#FF6F61'))   # orange
 
             pen = QPen()
             pen.setBrush(grad)
-            # stronger inner stroke width so colors are visible
-            pen.setWidthF(4.0)
+            # requested 2px solid equivalent stroke
+            pen.setWidthF(2.0)
             pen.setJoinStyle(pen.RoundJoin)
 
             painter.setPen(pen)
