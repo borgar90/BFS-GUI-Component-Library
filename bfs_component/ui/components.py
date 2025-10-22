@@ -4,11 +4,74 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QPushButton,
+    QRadioButton,
     QFrame,
     QSizePolicy,
 )
 from PySide6.QtGui import QPixmap, QFont, QColor
 from PySide6.QtCore import Qt
+from PySide6.QtCore import QRegularExpression
+from PySide6.QtWidgets import QComboBox, QCompleter, QLineEdit
+from PySide6.QtCore import Qt as _Qt
+
+
+class StyledLineEdit(QLineEdit):
+    """A small QLineEdit subclass for consistent styling and validation.
+
+    Provides a helper to set a regular-expression validator and a simple
+    is_valid() method. This avoids duplicating input behavior and keeps
+    styling centralized.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._regex = None
+        self._regex_validator = None
+        self._regex_error = None
+        # Default dark/neon input styling inspired by the design board.
+        # - dark background
+        # - rounded corners
+        # - subtle translucent border normally
+        # - stronger neon-tinted border on focus
+        # - lighter placeholder color
+        self.setStyleSheet(r"""
+        QLineEdit {
+            background: #0b1220;
+            color: #E6EEF8;
+            border-radius: 10px;
+            padding: 8px 12px;
+            border: 1px solid rgba(255,255,255,0.06);
+            selection-background-color: #7C3AED;
+            selection-color: white;
+            font-size: 12pt;
+        }
+        QLineEdit:focus {
+            /* subtle neon focus using a strong purple tint */
+            border: 1px solid rgba(124,58,237,0.95);
+            background: qlineargradient(x1:0 y1:0 x2:1 y2:0, stop:0 #08122a, stop:1 #0c1526);
+        }
+        QLineEdit[error="true"] {
+            border: 1px solid #DC2626;
+        }
+        QLineEdit::placeholder {
+            color: rgba(230,238,248,0.45);
+        }
+        """)
+
+    def set_validation_regex(self, pattern: str, error_message: str = "Invalid"):
+        from PySide6.QtCore import QRegularExpression
+        from PySide6.QtGui import QRegularExpressionValidator
+
+        self._regex = QRegularExpression(pattern)
+        self._regex_validator = QRegularExpressionValidator(self._regex)
+        self._regex_error = error_message
+
+    def is_valid(self):
+        if getattr(self, '_regex_validator', None) is None:
+            return True
+        state, _, _ = self._regex_validator.validate(self.text(), 0)
+        from PySide6.QtGui import QValidator
+
+        return state == QValidator.Acceptable
 
 
 class HeaderWidget(QWidget):
@@ -212,14 +275,17 @@ class TextInput(QWidget):
     text_changed = Signal(str)
 
     def __init__(self, label: str = "", placeholder: str = "", parent=None):
+        """TextInput is a thin composed widget that uses a styled QLineEdit.
+
+        Internally we reuse a QLineEdit subclass (`StyledLineEdit`) so the
+        underlying behaviour comes from Qt's native input widget and is easier
+        to style and integrate with toolkits.
+        """
         super().__init__(parent)
-        from PySide6.QtWidgets import QVBoxLayout, QLabel, QLineEdit
-        from PySide6.QtGui import QRegularExpressionValidator
-        from PySide6.QtCore import QRegularExpression
+        from PySide6.QtWidgets import QVBoxLayout, QLabel
 
         self._label_text = label
         self._required = False
-        self._regex = None
         self._regex_error = "Invalid input"
 
         layout = QVBoxLayout()
@@ -228,7 +294,9 @@ class TextInput(QWidget):
         self._label.setStyleSheet("font-weight: 600;")
         layout.addWidget(self._label)
 
-        self._input = QLineEdit()
+        # use StyledLineEdit (subclass of QLineEdit) so we don't reinvent
+        # validation and styling behavior
+        self._input = StyledLineEdit()
         self._input.setPlaceholderText(placeholder)
         self._input.textChanged.connect(self._on_text_changed)
         layout.addWidget(self._input)
@@ -258,11 +326,8 @@ class TextInput(QWidget):
         error message by calling `validate(show_error=True)` or checking
         `is_valid()` programmatically.
         """
-        from PySide6.QtCore import QRegularExpression
-        from PySide6.QtGui import QRegularExpressionValidator
-
-        self._regex = QRegularExpression(pattern)
-        self._regex_validator = QRegularExpressionValidator(self._regex)
+        # delegate to the styled line edit which keeps the validator
+        self._input.set_validation_regex(pattern, error_message)
         self._regex_error = error_message
 
     def text(self) -> str:
@@ -280,13 +345,7 @@ class TextInput(QWidget):
         txt = self.text()
         if self._required and not txt:
             return False
-        if getattr(self, "_regex", None) is not None:
-            # use validator
-            state, _, _ = getattr(self, "_regex_validator").validate(txt, 0)
-            from PySide6.QtGui import QValidator
-
-            return state == QValidator.Acceptable
-        return True
+        return self._input.is_valid()
 
     def validate(self, show_error: bool = True) -> bool:
         ok = self.is_valid()
@@ -482,43 +541,174 @@ class SearchableSelect(QWidget):
         cur = self._popup.currentItem()
         return cur.data(256) if cur is not None else None
 
-    def set_options(self, options: list):
-        self._raw_options = []
-        for o in options:
-            if isinstance(o, tuple) and len(o) >= 2:
-                self._raw_options.append((o[0], str(o[1])))
+
+class StyledComboBox(QWidget):
+    """A combobox-like component built from QComboBox (editable) + StyledLineEdit.
+
+    - Uses Qt's QCompleter for inline filtering and navigation
+    - Provides `set_items(items)` where items is list[str] or list[(val,label)]
+    - Emits `selection_changed(value)` when an item is selected
+    """
+    from PySide6.QtCore import Signal
+
+    selection_changed = Signal(object)
+
+    def __init__(self, items: list[str] | list[tuple] = None, parent=None):
+        super().__init__(parent)
+        from PySide6.QtWidgets import QHBoxLayout
+
+        self._combobox = QComboBox()
+        self._combobox.setEditable(True)
+        # replace line edit with StyledLineEdit for consistent styling
+        self._input = StyledLineEdit()
+        self._combobox.setLineEdit(self._input)
+
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._combobox)
+        self.setLayout(layout)
+
+        self._completer = QCompleter()
+        self._completer.setCaseSensitivity(_Qt.CaseInsensitive)
+        self._combobox.setCompleter(self._completer)
+
+        self._items = []
+        if items:
+            self.set_items(items)
+
+        self._combobox.activated.connect(self._on_activated)
+
+    def set_items(self, items: list):
+        # store as list of (value,label)
+        normalized = []
+        self._combobox.clear()
+        for it in items:
+            if isinstance(it, tuple) and len(it) >= 2:
+                normalized.append((it[0], str(it[1])))
+                self._combobox.addItem(str(it[1]), it[0])
             else:
-                self._raw_options.append((o, str(o)))
-        self._populate_list(self._raw_options)
+                normalized.append((it, str(it)))
+                self._combobox.addItem(str(it), it)
+        self._items = normalized
+        # update completer model
+        labels = [lbl for _, lbl in self._items]
+        from PySide6.QtCore import QStringListModel
+        model = QStringListModel(labels)
+        self._completer.setModel(model)
 
-    def _show_popup(self):
-        # position popup under the input
-        geo = self._input.geometry()
-        p = self._input.mapToGlobal(geo.bottomLeft())
-        self._popup.setMinimumWidth(max(self._input.width(), 120))
-        self._popup.move(p)
-        self._popup.show()
+    def _on_activated(self, index_or_text):
+        # QComboBox.activated can send either index or text depending on usage
+        if isinstance(index_or_text, int):
+            val = self._combobox.itemData(index_or_text)
+            self.selection_changed.emit(val)
+        else:
+            # find matching label
+            txt = str(index_or_text)
+            for val, lbl in self._items:
+                if lbl == txt:
+                    self.selection_changed.emit(val)
+                    return
 
-    def _hide_if_focus_lost(self):
-        from PySide6.QtWidgets import QApplication
-        fw = QApplication.focusWidget()
-        if fw is None:
-            self._popup.hide()
-            return
-        # if focus not on input or popup, hide
-        if fw is not self._input and not (fw is self._popup or self._popup.isAncestorOf(fw)):
-            self._popup.hide()
+    def current_value(self):
+        idx = self._combobox.currentIndex()
+        if idx >= 0:
+            return self._combobox.itemData(idx)
+        # fall back to text
+        return self._combobox.currentText()
 
-    def eventFilter(self, obj, event):
-        # hide popup when it loses focus
-        from PySide6.QtCore import QEvent
-        if not hasattr(self, '_popup'):
-            return super().eventFilter(obj, event)
+    def set_current_value(self, value):
+        # try to find exact match in item data
+        for i in range(self._combobox.count()):
+            if self._combobox.itemData(i) == value:
+                self._combobox.setCurrentIndex(i)
+                return True
+        # fallback: set text
+        self._combobox.setCurrentText(str(value))
+        return False
 
-        if obj is self._popup and event.type() == QEvent.FocusOut:
-            # schedule a check after focus change
-            from PySide6.QtCore import QTimer
-            QTimer.singleShot(0, self._hide_if_focus_lost)
-        return super().eventFilter(obj, event)
+
+class StyledRadioButton(QRadioButton):
+    """A thin subclass of QRadioButton to centralize styling for the library.
+
+    We keep it minimal: primarily a hook to apply a shared stylesheet later.
+    """
+    def __init__(self, label: str = "", parent=None):
+        super().__init__(label, parent)
+
+
+class RadioGroup(QWidget):
+    """A simple radio-button group component.
+
+    - Use `set_options(items)` where items is list[str] or list[(value,label)]
+    - Emits `selection_changed(value)` when selection changes
+    - Methods: set_value(value), get_value()
+    """
+    from PySide6.QtCore import Signal
+
+    selection_changed = Signal(object)
+
+    def __init__(self, items: list = None, orientation: Qt = Qt.Vertical, parent=None):
+        super().__init__(parent)
+        from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QButtonGroup
+
+        self._layout = QVBoxLayout() if orientation == Qt.Vertical else QHBoxLayout()
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(self._layout)
+
+        self._button_group = QButtonGroup(self)
+        self._button_group.setExclusive(True)
+        self._id_to_value = {}
+        self._value_to_id = {}
+
+        if items:
+            self.set_options(items)
+
+        self._button_group.idToggled.connect(self._on_id_toggled)
+
+    def set_options(self, items: list):
+        # clear existing buttons
+        for i in reversed(range(self._layout.count())):
+            w = self._layout.itemAt(i).widget()
+            if w:
+                self._layout.removeWidget(w)
+                w.setParent(None)
+
+        self._id_to_value.clear()
+        self._value_to_id.clear()
+        self._button_group = type(self._button_group)(self)
+        self._button_group.setExclusive(True)
+
+        for idx, it in enumerate(items):
+            if isinstance(it, tuple) and len(it) >= 2:
+                val, lbl = it[0], str(it[1])
+            else:
+                val, lbl = it, str(it)
+            btn = StyledRadioButton(lbl)
+            self._layout.addWidget(btn)
+            self._button_group.addButton(btn, idx)
+            self._id_to_value[idx] = val
+            self._value_to_id[val] = idx
+
+    def _on_id_toggled(self, id_, checked):
+        if checked:
+            val = self._id_to_value.get(id_)
+            self.selection_changed.emit(val)
+
+    def set_value(self, value):
+        idx = self._value_to_id.get(value)
+        if idx is not None:
+            btn = self._button_group.button(idx)
+            if btn:
+                btn.setChecked(True)
+                return True
+        return False
+
+    def get_value(self):
+        btn = self._button_group.checkedButton()
+        if btn is None:
+            return None
+        id_ = self._button_group.id(btn)
+        return self._id_to_value.get(id_)
+
 
 
