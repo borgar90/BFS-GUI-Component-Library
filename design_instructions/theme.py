@@ -10,7 +10,10 @@ THEME = {
     # Core colors
     "colors": {
         "gradient": "linear-gradient(135deg, #071830, #163053, #3b2b6b, #6b44d9, #9a4de0)",
-        "gradient_stops": ["#071830", "#163053", "#3b2b6b", "#6b44d9", "#9a4de0"],
+    "gradient_stops": ["#071830", "#163053", "#3b2b6b", "#6b44d9", "#9a4de0"],
+    # focus / input-specific gradient (used for focus rings)
+    "input_focus_gradient": "qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #00C6FF, stop:0.5 #9047FF, stop:1 #FF6F61)",
+    "input_focus_stops": ["#00C6FF", "#9047FF", "#FF6F61"],
         "primary": "#3b2b6b",
         "primary_variant": "#6b44d9",
         "accent": "#9a4de0",
@@ -84,6 +87,8 @@ THEME = {
     # Small utilities
     "utils": {
         "focus_ring": "0 0 0 3px rgba(58,77,233,0.12)",
+        # default painted focus ring width (px)
+        "focus_ring_width": 6,
         "divider": "rgba(15,23,42,0.06)",
     },
 

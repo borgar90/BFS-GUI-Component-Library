@@ -127,10 +127,17 @@ class StyledLineEdit(QLineEdit):
             # place warm stops early with strong alpha.
             # Use the requested diagonal gradient: cyan -> lilla -> orange
             # Equivalent to: border: 2px solid qlineargradient(x1:0,y1:0,x2:1,y2:1,...)
+            # try to use theme tokens if available
+            try:
+                from design_instructions.theme import THEME
+                stops = THEME.get('colors', {}).get('input_focus_stops', ['#00C6FF', '#9047FF', '#FF6F61'])
+            except Exception:
+                stops = ['#00C6FF', '#9047FF', '#FF6F61']
+
             grad = QLinearGradient(r.topLeft(), r.bottomRight())
-            grad.setColorAt(0.0, QColor('#00C6FF'))   # cyan
-            grad.setColorAt(0.5, QColor('#9047FF'))   # lilla (purple)
-            grad.setColorAt(1.0, QColor('#FF6F61'))   # orange
+            grad.setColorAt(0.0, QColor(stops[0]))
+            grad.setColorAt(0.5, QColor(stops[1]))
+            grad.setColorAt(1.0, QColor(stops[2]))
 
             pen = QPen()
             pen.setBrush(grad)
@@ -148,14 +155,22 @@ class StyledLineEdit(QLineEdit):
             r_out = QRectF(r)
             out_inset = 4.0
             r_out.adjust(-out_inset, -out_inset, out_inset, out_inset)
+            try:
+                from design_instructions.theme import THEME
+                stops_out = THEME.get('colors', {}).get('input_focus_stops', ['#00C6FF', '#9047FF', '#FF6F61'])
+                ring_w = THEME.get('utils', {}).get('focus_ring_width', 6)
+            except Exception:
+                stops_out = ['#00C6FF', '#9047FF', '#FF6F61']
+                ring_w = 6
+
             from PySide6.QtGui import QLinearGradient
             grad_out = QLinearGradient(r_out.topLeft(), r_out.bottomRight())
-            grad_out.setColorAt(0.0, QColor('#00C6FF'))
-            grad_out.setColorAt(0.5, QColor('#9047FF'))
-            grad_out.setColorAt(1.0, QColor('#FF6F61'))
+            grad_out.setColorAt(0.0, QColor(stops_out[0]))
+            grad_out.setColorAt(0.5, QColor(stops_out[1]))
+            grad_out.setColorAt(1.0, QColor(stops_out[2]))
             outer_pen = QPen()
             outer_pen.setBrush(grad_out)
-            outer_pen.setWidthF(6.0)
+            outer_pen.setWidthF(float(ring_w))
             outer_pen.setJoinStyle(outer_pen.RoundJoin)
             painter.setPen(outer_pen)
             painter.drawRoundedRect(r_out, 12.0, 12.0)
