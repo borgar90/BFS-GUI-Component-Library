@@ -44,10 +44,11 @@ def main(argv):
     class GradientSwatch(QWidget):
         def __init__(self, parent=None):
             super().__init__(parent)
-            # small: 20x50 as requested
+            # small: 20x50 as requested; expanded preview will be 100x120
             self._small_w = 20
             self._small_h = 50
-            self._large = 120
+            self._large_w = 100
+            self._large_h = 120
             self.setFixedSize(self._small_w, self._small_h)
             self._expanded = False
 
@@ -55,7 +56,7 @@ def main(argv):
             # toggle size between small and large for easier inspection
             self._expanded = not self._expanded
             if self._expanded:
-                self.setFixedSize(self._large, self._large)
+                self.setFixedSize(self._large_w, self._large_h)
             else:
                 self.setFixedSize(self._small_w, self._small_h)
             self.update()
