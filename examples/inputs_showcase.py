@@ -2,17 +2,17 @@
 
 Shows the `TextInput` component with a few validation rules.
 """
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QHBoxLayout
 import sys
 import pathlib
 
 # When examples are run directly from the repo, ensure the project root is on sys.path
 try:
-    from bfs_component.ui.components import TextInput
+    from bfs_component.ui.components import TextInput, StyledLineEdit
 except ModuleNotFoundError:
     repo_root = pathlib.Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root))
-    from bfs_component.ui.components import TextInput
+    from bfs_component.ui.components import TextInput, StyledLineEdit
 
 
 def main(argv):
@@ -29,6 +29,35 @@ def main(argv):
     email = TextInput("Email", placeholder="you@example.com")
     email.set_validation_regex(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", "Enter a valid email")
     layout.addWidget(email)
+
+    # --- direct StyledLineEdit showcase (screenshot-friendly) ---
+    layout.addSpacing(12)
+    lbl_demo = QLabel("Focused gradient demo:")
+    layout.addWidget(lbl_demo)
+
+    demo_input = StyledLineEdit()
+    demo_input.setPlaceholderText("Click or press 'Focus' to see the glow")
+    layout.addWidget(demo_input)
+
+    btn_row = QHBoxLayout()
+    btn_focus = QPushButton("Focus")
+    btn_unfocus = QPushButton("Unfocus")
+
+    def do_focus():
+        demo_input.setFocus()
+
+    def do_unfocus():
+        # move focus to the submit button to remove focus from input
+        btn.setFocus()
+
+    btn_focus.clicked.connect(do_focus)
+    btn_unfocus.clicked.connect(do_unfocus)
+    btn_row.addWidget(btn_focus)
+    btn_row.addWidget(btn_unfocus)
+    layout.addLayout(btn_row)
+
+    # autofocus demo input so a screenshot will capture the focused state
+    demo_input.setFocus()
 
     status = QLabel("")
     layout.addWidget(status)
