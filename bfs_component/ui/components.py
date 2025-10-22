@@ -92,6 +92,42 @@ class StyledLineEdit(QLineEdit):
         self.style().polish(self)
         super().focusOutEvent(event)
 
+    def paintEvent(self, event):
+        # let the base class draw the line edit (text, background, caret)
+        super().paintEvent(event)
+        # only draw the gradient stroke when focused
+        if not self.hasFocus():
+            return
+
+        try:
+            from PySide6.QtGui import QPainter, QPen, QLinearGradient, QColor
+            from PySide6.QtCore import QRectF
+
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.Antialiasing)
+
+            # inset the stroke slightly so it doesn't overlap text area
+            r = QRectF(self.rect())
+            inset = 2.0
+            r.adjust(inset, inset, -inset, -inset)
+
+            grad = QLinearGradient(r.topLeft(), r.topRight())
+            grad.setColorAt(0.0, QColor(124, 58, 237, 220))
+            grad.setColorAt(0.5, QColor(236, 72, 153, 220))
+            grad.setColorAt(1.0, QColor(249, 115, 22, 220))
+
+            pen = QPen()
+            pen.setBrush(grad)
+            pen.setWidthF(3.0)
+            pen.setJoinStyle(pen.RoundJoin)
+
+            painter.setPen(pen)
+            painter.drawRoundedRect(r, 10.0, 10.0)
+            painter.end()
+        except Exception:
+            # be forgiving - if painting fails, don't crash
+            return
+
     def set_validation_regex(self, pattern: str, error_message: str = "Invalid"):
         from PySide6.QtCore import QRegularExpression
         from PySide6.QtGui import QRegularExpressionValidator
