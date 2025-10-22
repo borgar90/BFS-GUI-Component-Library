@@ -45,8 +45,8 @@ class StyledLineEdit(QLineEdit):
             font-size: 12pt;
         }
         QLineEdit:focus {
-            /* subtle neon focus using a strong purple tint */
-            border: 1px solid rgba(124,58,237,0.95);
+            /* remove the stylesheet-drawn border so the painted gradient stroke shows */
+            border: none;
             background: qlineargradient(x1:0 y1:0 x2:1 y2:0, stop:0 #08122a, stop:1 #0c1526);
         }
         QLineEdit[error="true"] {
