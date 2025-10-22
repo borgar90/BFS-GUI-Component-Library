@@ -56,6 +56,41 @@ class StyledLineEdit(QLineEdit):
             color: rgba(230,238,248,0.45);
         }
         """)
+        # prepare an indicator property; stylesheet can use :focus, but we'll
+        # also toggle a 'focused' dynamic property so effects can be forced
+        # and refreshed if needed.
+        self.setProperty('focused', False)
+
+    def focusInEvent(self, event):
+        # apply a neon drop shadow to simulate the glow in the design
+        try:
+            from PySide6.QtWidgets import QGraphicsDropShadowEffect
+            from PySide6.QtGui import QColor
+
+            effect = QGraphicsDropShadowEffect(self)
+            effect.setBlurRadius(28)
+            effect.setColor(QColor(124, 58, 237, 200))
+            effect.setOffset(0, 0)
+            self.setGraphicsEffect(effect)
+        except Exception:
+            # if effects unavailable, still set the property so stylesheet reacts
+            pass
+        self.setProperty('focused', True)
+        # ensure style is refreshed
+        self.style().unpolish(self)
+        self.style().polish(self)
+        super().focusInEvent(event)
+
+    def focusOutEvent(self, event):
+        # remove effect and clear property
+        try:
+            self.setGraphicsEffect(None)
+        except Exception:
+            pass
+        self.setProperty('focused', False)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        super().focusOutEvent(event)
 
     def set_validation_regex(self, pattern: str, error_message: str = "Invalid"):
         from PySide6.QtCore import QRegularExpression
