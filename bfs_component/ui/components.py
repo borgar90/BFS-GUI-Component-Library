@@ -111,9 +111,13 @@ class StyledLineEdit(QLineEdit):
             inset = 2.0
             r.adjust(inset, inset, -inset, -inset)
 
-            grad = QLinearGradient(r.topLeft(), r.topRight())
-            grad.setColorAt(0.0, QColor(124, 58, 237, 220))
-            grad.setColorAt(0.5, QColor(236, 72, 153, 220))
+            # bias the warm colors (pink/orange) toward the top-right corner
+            # by creating a diagonal gradient from bottom-left -> top-right and
+            # concentrating the warm stops near the end.
+            grad = QLinearGradient(r.bottomLeft(), r.topRight())
+            grad.setColorAt(0.0, QColor(124, 58, 237, 160))
+            grad.setColorAt(0.25, QColor(124, 58, 237, 220))
+            grad.setColorAt(0.6, QColor(236, 72, 153, 220))
             grad.setColorAt(1.0, QColor(249, 115, 22, 220))
 
             pen = QPen()
