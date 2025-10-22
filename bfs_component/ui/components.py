@@ -66,10 +66,10 @@ class StyledLineEdit(QLineEdit):
         try:
             from PySide6.QtWidgets import QGraphicsDropShadowEffect
             from PySide6.QtGui import QColor
-
             effect = QGraphicsDropShadowEffect(self)
-            effect.setBlurRadius(28)
-            effect.setColor(QColor(124, 58, 237, 200))
+            effect.setBlurRadius(18)
+            # use a more neutral cooler shadow so it doesn't overpower the warm gradient
+            effect.setColor(QColor(8, 18, 42, 160))
             effect.setOffset(0, 0)
             self.setGraphicsEffect(effect)
         except Exception:
@@ -127,11 +127,17 @@ class StyledLineEdit(QLineEdit):
 
             pen = QPen()
             pen.setBrush(grad)
-            pen.setWidthF(3.0)
+            # stronger inner stroke width so colors are visible
+            pen.setWidthF(4.0)
             pen.setJoinStyle(pen.RoundJoin)
 
             painter.setPen(pen)
             painter.drawRoundedRect(r, 10.0, 10.0)
+            # faint outer translucent stroke to add contrast for warm colors
+            outer_pen = QPen(QColor(255, 255, 255, 30))
+            outer_pen.setWidthF(1.0)
+            painter.setPen(outer_pen)
+            painter.drawRoundedRect(r.adjusted(-0.5, -0.5, 0.5, 0.5), 10.0, 10.0)
             painter.end()
         except Exception:
             # be forgiving - if painting fails, don't crash
